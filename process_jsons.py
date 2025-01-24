@@ -22,6 +22,14 @@ def natural_sort_key(s):
             for t in re.split(r'(\d+)', s)]
 
 
+def is_textual(s):
+    if re.search(r'\d\d', s):
+        return False
+    if not re.search(r'[a-zA-Z]', s):
+        return False
+    return True
+
+
 def append_to_csv(df, csv_path):
     with open(csv_path, 'a') as f:
         df.to_csv(f, header=f.tell() == 0, index=False)
@@ -113,7 +121,8 @@ if __name__ == '__main__':
 
         iupac_name, smiles, inchi = get_descriptors(name_ids_secion)
         molecular_formula = get_molecular_formula(name_ids_secion)
-        synonyms = get_synonyms(name_ids_secion)
+        synonyms = list(filter(is_textual, get_synonyms(name_ids_secion)))
+        synonyms = [syn for syn in synonyms if 3 <= len(syn) <= 105]
 
         comp_row = {
             'CID': id,
