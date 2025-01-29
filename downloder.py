@@ -34,8 +34,7 @@ def get_last_cid(save_path):
 
 
 last_cid = get_last_cid(SAVE_PATH)
-message = 'Previous download not found. Starting from scratch.' if last_cid == 0 else f'Start downloading from CID: {
-    last_cid}'
+message = 'Previous download not found. Starting from scratch.' if last_cid == 0 else f'Start downloading from CID: {last_cid}'
 print(message)
 start_cid = last_cid + 1
 num_requests = 0
