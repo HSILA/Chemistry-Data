@@ -2,4 +2,11 @@ requests
 tenacity
 tqdm
 pandas
-numpy==1.26.4
+python-dotenv
+huggingface-hub
+tiktoken
+openai
+numpy<2.0.0
+blingfire
+cached_path
+git+https://github.com/nicholishen/tooldantic.git
