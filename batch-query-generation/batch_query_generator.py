@@ -44,7 +44,7 @@ class Config(BaseModel):
     )
     shard_size: int = Field(
         50000,
-        description="Number of records per shard for generating requests. Default is 50,000 (max for OpenAI)."
+        description="Number of records per shard for generating requests. Default is 50,000 (max for OpenAI).",
     )
 
     @field_validator("data_path")
@@ -87,7 +87,7 @@ def generate_requests(
     input_tokens = 0
     SHARD_SIZE = 50_000
     for shard_start in tqdm.tqdm(range(0, len(data), SHARD_SIZE)):
-        dataset_slice = data.iloc[shard_start: shard_start + SHARD_SIZE]
+        dataset_slice = data.iloc[shard_start : shard_start + SHARD_SIZE]
         shard_num = shard_start // SHARD_SIZE
         for i, row in dataset_slice.iterrows():
             prompt = config.prompt_template.format(text=row[config.text_column])
@@ -400,6 +400,7 @@ if __name__ == "__main__":
                 response_df[col] = response_df[col].astype(data_df[col].dtype)
 
         merged_df = pd.merge(data_df, response_df, on=config.id_columns, how="inner")
-        output_csv = os.path.join(os.path.join(
-            config.root_dir, f"{os.path.basename(config.root_dir)}.csv"))
+        output_csv = os.path.join(
+            os.path.join(config.root_dir, f"{os.path.basename(config.root_dir)}.csv")
+        )
         merged_df.to_csv(output_csv, index=False)

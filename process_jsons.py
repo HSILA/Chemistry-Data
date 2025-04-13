@@ -7,7 +7,7 @@ import re
 
 
 def read_json(path):
-    with open(path, 'r') as f:
+    with open(path, "r") as f:
         return json.load(f)
 
 
@@ -18,84 +18,97 @@ def read_path_jsons(directory):
 
 
 def natural_sort_key(s):
-    return [int(t) if t.isdigit() else t.lower()
-            for t in re.split(r'(\d+)', s)]
+    return [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", s)]
 
 
 def is_textual(s):
-    if re.search(r'\d\d', s):
+    if re.search(r"\d\d", s):
         return False
-    if not re.search(r'[a-zA-Z]', s):
+    if not re.search(r"[a-zA-Z]", s):
         return False
     return True
 
 
 def append_to_csv(df, csv_path):
-    with open(csv_path, 'a') as f:
+    with open(csv_path, "a") as f:
         df.to_csv(f, header=f.tell() == 0, index=False)
 
 
 def get_references(data):
     refs = {}
-    for r in data['Record']['Reference']:
-        refs[r['ReferenceNumber']] = r
+    for r in data["Record"]["Reference"]:
+        refs[r["ReferenceNumber"]] = r
     return refs
 
 
 def get_section(sections, key):
     for sec in sections:
-        if sec['TOCHeading'] == key:
+        if sec["TOCHeading"] == key:
             return sec
     return None
 
 
 def get_descriptions(names_identifiers_section):
     ref_desc = {}
-    records_desc = get_section(names_identifiers_section['Section'], 'Record Description')
+    records_desc = get_section(
+        names_identifiers_section["Section"], "Record Description"
+    )
     if records_desc is None:
         return ref_desc
-    for item in records_desc['Information']:
-        ref_number = item['ReferenceNumber']
+    for item in records_desc["Information"]:
+        ref_number = item["ReferenceNumber"]
         if ref_number != 111:
-            ref_desc[ref_number] = item['Value']['StringWithMarkup'][0]['String']
+            ref_desc[ref_number] = item["Value"]["StringWithMarkup"][0]["String"]
     return ref_desc
 
 
 def get_descriptors(names_identifiers_section):
-    computed_descriptors = get_section(names_identifiers_section['Section'], 'Computed Descriptors')
+    computed_descriptors = get_section(
+        names_identifiers_section["Section"], "Computed Descriptors"
+    )
     iupac_name = smiles = inchi = None
-    for item in computed_descriptors['Section']:
-        if item['TOCHeading'] == 'IUPAC Name':
-            iupac_name = item['Information'][0]['Value']['StringWithMarkup'][0]['String']
-        elif item['TOCHeading'] == 'InChI':
-            inchi = item['Information'][0]['Value']['StringWithMarkup'][0]['String']
-        elif item['TOCHeading'] == 'SMILES':
-            smiles = item['Information'][0]['Value']['StringWithMarkup'][0]['String']
+    for item in computed_descriptors["Section"]:
+        if item["TOCHeading"] == "IUPAC Name":
+            iupac_name = item["Information"][0]["Value"]["StringWithMarkup"][0][
+                "String"
+            ]
+        elif item["TOCHeading"] == "InChI":
+            inchi = item["Information"][0]["Value"]["StringWithMarkup"][0]["String"]
+        elif item["TOCHeading"] == "SMILES":
+            smiles = item["Information"][0]["Value"]["StringWithMarkup"][0]["String"]
     return iupac_name, smiles, inchi
 
 
 def get_molecular_formula(names_identifiers_section):
-    molecular_formula = get_section(names_identifiers_section['Section'], 'Molecular Formula')
-    return molecular_formula['Information'][0]['Value']['StringWithMarkup'][0]['String']
+    molecular_formula = get_section(
+        names_identifiers_section["Section"], "Molecular Formula"
+    )
+    return molecular_formula["Information"][0]["Value"]["StringWithMarkup"][0]["String"]
 
 
 def get_synonyms(names_identifiers_section):
     try:
-        synonyms_sec = get_section(names_identifiers_section['Section'], 'Synonyms')
-        synonyms = get_section(synonyms_sec['Section'], 'Depositor-Supplied Synonyms')
-        syns_list = synonyms['Information'][0]['Value']['StringWithMarkup']
-        return [syn['String'] for syn in syns_list]
+        synonyms_sec = get_section(names_identifiers_section["Section"], "Synonyms")
+        synonyms = get_section(synonyms_sec["Section"], "Depositor-Supplied Synonyms")
+        syns_list = synonyms["Information"][0]["Value"]["StringWithMarkup"]
+        return [syn["String"] for syn in syns_list]
     except:
         return []
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Process JSON files from a directory.')
-    parser.add_argument('--jsons-dir', type=str, help='Directory containing JSON files')
-    parser.add_argument('--comp-csv', type=str, help='CSV file to save compounds data')
-    parser.add_argument('--desc-csv', type=str, help='CSV file to save descriptions data')
-    parser.add_argument('--batch-size', type=int, default=1000,
-                        help='Number of JSON files to process in a batch')
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Process JSON files from a directory.")
+    parser.add_argument("--jsons-dir", type=str, help="Directory containing JSON files")
+    parser.add_argument("--comp-csv", type=str, help="CSV file to save compounds data")
+    parser.add_argument(
+        "--desc-csv", type=str, help="CSV file to save descriptions data"
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=1000,
+        help="Number of JSON files to process in a batch",
+    )
     args = parser.parse_args()
 
     comp_rows, desc_rows = [], []
@@ -109,14 +122,14 @@ if __name__ == '__main__':
             append_to_csv(pd.DataFrame(desc_rows), args.desc_csv)
             comp_rows, desc_rows = [], []
 
-        id = data['Record']['RecordNumber']
-        id_type = data['Record']['RecordType']
-        title = data['Record']['RecordTitle']
+        id = data["Record"]["RecordNumber"]
+        id_type = data["Record"]["RecordType"]
+        title = data["Record"]["RecordTitle"]
 
         references = get_references(data)
-        main_sections = data['Record']['Section']
+        main_sections = data["Record"]["Section"]
 
-        name_ids_secion = get_section(main_sections, 'Names and Identifiers')
+        name_ids_secion = get_section(main_sections, "Names and Identifiers")
         descriptions = get_descriptions(name_ids_secion)
 
         iupac_name, smiles, inchi = get_descriptors(name_ids_secion)
@@ -125,13 +138,13 @@ if __name__ == '__main__':
         synonyms = [syn for syn in synonyms if 3 <= len(syn) <= 105]
 
         comp_row = {
-            'CID': id,
-            'Title': title,
-            'MolecularFormula': molecular_formula,
-            'IUPACName': iupac_name,
-            'InChI': inchi,
-            'SMILES': smiles,
-            'Synonyms': synonyms
+            "CID": id,
+            "Title": title,
+            "MolecularFormula": molecular_formula,
+            "IUPACName": iupac_name,
+            "InChI": inchi,
+            "SMILES": smiles,
+            "Synonyms": synonyms,
         }
         comp_rows.append(comp_row)
 
@@ -140,14 +153,14 @@ if __name__ == '__main__':
                 ref = references[ref_id]
 
                 desc_row = {
-                    'CID': id,
-                    'Title': title,
-                    'Description': desc,
-                    'ReferenceNumber': ref_id,
-                    'SourceName': ref['SourceName'],
-                    'SourceID': ref['SourceID'],
-                    'ReferenceDescription': ref['Description'],
-                    'URL': ref['URL']
+                    "CID": id,
+                    "Title": title,
+                    "Description": desc,
+                    "ReferenceNumber": ref_id,
+                    "SourceName": ref["SourceName"],
+                    "SourceID": ref["SourceID"],
+                    "ReferenceDescription": ref["Description"],
+                    "URL": ref["URL"],
                 }
 
                 desc_rows.append(desc_row)
