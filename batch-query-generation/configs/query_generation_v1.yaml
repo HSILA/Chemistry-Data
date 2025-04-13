@@ -1,0 +1,34 @@
+data_path: "BASF-AI/ChemRxiv-Paragraphs"
+hf_config_name: cc-by
+root_dir: "chemrxiv_ccby_train"
+model: "o3-mini"
+shard_size: 40000
+text_column: "paragraph"
+id_columns:
+  - "id"
+  - "idx"
+prompt_template: |
+  You are given a paragraph extracted from a chemistry research paper. Your task is to create one clear, focused question that targets a single chemistry-related aspect mentioned in the text. The goal is to imitate an information retrieval pipeline, where the provided text is a document and the question you generate is a query entered by a user. So the answer to your question should be explicitly found in the text. The text should not be mentioned in the question in any way, for example, don't include phrases such as 'based on the text' or 'according to the description'.
+
+  Example: 
+  Text: Fluorescent dyes with extended conjugation typically exhibit shifted absorption and emission wavelengths compared to their less-conjugated counterparts. This extended π-electron network allows for a more efficient delocalization of electrons, which generally results in lower energy transitions and red-shifted spectra.
+
+  Correct Question: How does extended conjugation in a fluorescent dye influence its absorption and emission wavelengths?
+
+  Keep your questions simple. As an example:
+  Text: Once the system is in the diffusive region, the MSD graph follows a straight-line behavior, and the diffusion coefficient, D r , can be calculated from the slope of the straight line against the time difference. It is worth noting that if there is a correlated diffusion, the self-diffusion differs from the collective diffusion. The self-and collective diffusion coefficients are succinctly linked by Haven's ratio (H R ), given by, H R = D c /D r.
+  Correct Question: What connects self-diffusion and collective diffusion coefficients in a system?
+
+  Some cases should be avoided. Do not generate questions that rely on vague references. For example:
+
+  Text: As is widely known in the community and seen in our previous studies, B3LYP-GD3BJ with small Pople-style basis sets and implicit solvation with CPCM systematically underestimates the free energies of activation of enzyme mechanisms compared to the experimental kinetic value. A focus on the quality of the quantum chemical level of theory is purposefully avoided in this work, to instead efficiently provide insight about QM-cluster model building approaches.
+  Wrong Question: Why does the work intentionally avoid focusing on the quality of the quantum chemical level of theory?
+
+  In this question, the phrase 'the work' creates ambiguity when the original text is not provided. Questions should reflect real-world scenarios, be self-contained, and be understandable on their own, with answers fully contained within the provided paragraph. Avoid generating general or unclear questions about the overall work discussed in the paper.
+
+  There might be cases where no question could be defined out of the text, in that case, return none. Now it's your time to answer. Provide a JSON with `question` as the key and the generated question as the value.
+  
+  Input Text: {text}
+params:
+  temperature: 0.0
+  reasoning_effort: "medium"
