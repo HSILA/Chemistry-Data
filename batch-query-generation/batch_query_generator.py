@@ -1,9 +1,10 @@
 import tiktoken
 from typing import Optional
 import argparse
+from pydantic import BaseModel, Field
+from config import BatchQueryGenerationConfig
 from tooldantic import OpenAiResponseFormatBaseModel
 from langchain_core.output_parsers import JsonOutputParser
-from pydantic import BaseModel, Field, field_validator
 from datasets import load_dataset
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -17,49 +18,8 @@ import json
 load_dotenv()
 
 
-class Config(BaseModel):
-    data_path: str = Field(
-        ..., description="path to a csv file or a huggingface dataset"
-    )
-    hf_config_name: Optional[str] = Field(
-        default=None, description="Huggingface dataset config name."
-    )
-    root_dir: str = Field(
-        ...,
-        description="Root directory for the job. Generated requests, batch job details and retrieved responses are saved here.",
-    )
-    model: str = Field(..., description="The model name, e.g. 'gpt-4o-mini'.")
-    text_column: str = Field(
-        ..., description="The name of the column containing text for query generation."
-    )
-    id_columns: list[str] = Field(
-        ..., description="List of column names to identify a row in the dataset."
-    )
-    prompt_template: str = Field(
-        ..., description="Template query string for generating requests."
-    )
-    params: dict = Field(
-        ...,
-        description="Dictionary of OpenAI API call parameters (e.g. `temperature`, `reasoning_effort`).",
-    )
-    shard_size: int = Field(
-        50000,
-        description="Number of records per shard for generating requests. Default is 50,000 (max for OpenAI).",
-    )
-
-    @field_validator("data_path")
-    def validate_data_path(cls, v):
-        if os.path.exists(v) or v.lower().endswith(".csv"):
-            return v
-        if len(v.split("/")) == 2:
-            return v
-        raise ValueError(
-            "data_path must be either a local CSV file path (or URL ending with '.csv') or a Huggingface dataset identifier in the format 'user/dataset'."
-        )
-
-
 class QueryGeneration(OpenAiResponseFormatBaseModel):
-    question: Optional[str]
+    question: Optional[str] = Field(..., description="A question generated from a paragraph.")
 
 
 def get_client() -> OpenAI:
@@ -72,7 +32,7 @@ def get_client() -> OpenAI:
 def generate_requests(
     data: pd.DataFrame,
     output_path: str,
-    config: Config,
+    config: BatchQueryGenerationConfig,
     response_format: Union[BaseModel, dict],
 ):
     """
@@ -81,14 +41,13 @@ def generate_requests(
     Args:
         data (pd.DataFrame): DataFrame containing the data.
         output_path (str): The file path where the generated request JSONL files will be saved.
-        config (Config): A configuration instance containing settings like text_column, template, model, params, shard_size, and root_dir.
+        config (BatchQueryGenerationConfig): A configuration instance containing settings like text_column, template, model, params, shard_size, and root_dir.
         response_format (BaseModel or str): Response format model or string for query generation.
     """
     input_tokens = 0
-    SHARD_SIZE = 50_000
-    for shard_start in tqdm.tqdm(range(0, len(data), SHARD_SIZE)):
-        dataset_slice = data.iloc[shard_start : shard_start + SHARD_SIZE]
-        shard_num = shard_start // SHARD_SIZE
+    for shard_start in tqdm.tqdm(range(0, len(data), config.shard_size)):
+        dataset_slice = data.iloc[shard_start: shard_start + config.shard_size]
+        shard_num = shard_start // config.shard_size
         for i, row in dataset_slice.iterrows():
             prompt = config.prompt_template.format(text=row[config.text_column])
             with open(
@@ -221,7 +180,12 @@ def extract_responses_to_df(responses_path: str, id_columns: list[str]) -> pd.Da
     total_completion_tokens = 0
 
     for line in merged_lines:
-        data = json.loads(line)
+        try:
+            data = json.loads(line)
+        except json.JSONDecodeError:
+            print("Skipping malformed JSONL: %r", line)
+            continue
+
         custom_id = data.get("custom_id", "")
         response_body = data.get("response", {}).get("body", {})
         choices = response_body.get("choices", [])
@@ -347,7 +311,7 @@ if __name__ == "__main__":
 
     with open(args.config, "r") as file:
         config_data = yaml.safe_load(file)
-    config = Config(**config_data)
+    config = BatchQueryGenerationConfig(**config_data)
 
     requests_path = os.path.join(config.root_dir, "requests")
     responses_path = os.path.join(config.root_dir, "responses")
@@ -403,4 +367,6 @@ if __name__ == "__main__":
         output_csv = os.path.join(
             os.path.join(config.root_dir, f"{os.path.basename(config.root_dir)}.csv")
         )
-        merged_df.to_csv(output_csv, index=False)
+        merged_df_clean = merged_df.dropna()
+        print(f"Dropping {len(merged_df) - len(merged_df_clean)} rows with NaNs before saving.")
+        merged_df_clean.to_csv(output_csv, index=False)
