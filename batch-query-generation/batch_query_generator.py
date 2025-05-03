@@ -19,7 +19,9 @@ load_dotenv()
 
 
 class QueryGeneration(OpenAiResponseFormatBaseModel):
-    question: Optional[str] = Field(..., description="A question generated from a paragraph.")
+    question: Optional[str] = Field(
+        ..., description="A question generated from a paragraph."
+    )
 
 
 def get_client() -> OpenAI:
@@ -46,7 +48,7 @@ def generate_requests(
     """
     input_tokens = 0
     for shard_start in tqdm.tqdm(range(0, len(data), config.shard_size)):
-        dataset_slice = data.iloc[shard_start: shard_start + config.shard_size]
+        dataset_slice = data.iloc[shard_start : shard_start + config.shard_size]
         shard_num = shard_start // config.shard_size
         for i, row in dataset_slice.iterrows():
             prompt = config.prompt_template.format(text=row[config.text_column])
@@ -281,14 +283,17 @@ def download_outputs(batch_job_details: str, output_dir: str):
     client = get_client()
 
     for file, batch_id in tqdm.tqdm(file_to_batch_id.items()):
+        base_name, ext = os.path.splitext(os.path.basename(file))
+        response_name = f"{base_name}-response{ext}"
+        output_file = os.path.join(output_dir, response_name)
+
+        if os.path.exists(output_file):
+            print(f"Skipping {response_name}, file already exists.")
+            continue
+
         batch = client.batches.retrieve(batch_id)
         output_file_id = batch.output_file_id
         response_bytes = client.files.content(output_file_id).content
-
-        base_name = os.path.basename(file)
-        base_name, ext = os.path.splitext(base_name)
-        response_name = f"{base_name}-response{ext}"
-        output_file = os.path.join(output_dir, response_name)
 
         with open(output_file, "wb") as f:
             f.write(response_bytes)
@@ -368,5 +373,7 @@ if __name__ == "__main__":
             os.path.join(config.root_dir, f"{os.path.basename(config.root_dir)}.csv")
         )
         merged_df_clean = merged_df.dropna()
-        print(f"Dropping {len(merged_df) - len(merged_df_clean)} rows with NaNs before saving.")
+        print(
+            f"Dropping {len(merged_df) - len(merged_df_clean)} rows with NaNs before saving."
+        )
         merged_df_clean.to_csv(output_csv, index=False)
