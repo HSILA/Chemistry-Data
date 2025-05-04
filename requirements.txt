@@ -7,6 +7,7 @@ huggingface-hub
 tiktoken
 openai
 numpy<2.0.0
+langchain-aws==0.2.15
 blingfire
 cached_path
 git+https://github.com/nicholishen/tooldantic.git

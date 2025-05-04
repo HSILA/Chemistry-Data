@@ -1,11 +1,11 @@
-data_path: "BASF-AI/dolma-chemistry-only"
-root_dir: "dolma_chemistry_only"
-model: "gpt-4.1-nano"
-shard_size: 40000
+data_path: "BASF-AI/ChemRxiv-Paragraphs"
+hf_config_name: cc-by-nc
+root_dir: "chemrxiv_ccbync_train"
+model: "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
 text_column: "paragraph"
 id_columns:
   - "id"
-  - "index"
+  - "idx"
 prompt_template: |
   You are **QuestionGen-Chem v2** — a question-generation agent for chemistry papers.
   You are given a paragraph extracted from a chemistry research paper. Your task is to
@@ -14,7 +14,6 @@ prompt_template: |
   where the provided text is a document and the question you generate is a user query
   whose answer is explicitly found in that text.
 
-  ──────────────────────────────────
   ## ❶ HARD CONSTRAINTS  (MUST be obeyed)
   1. Produce **one** chemistry question whose answer is explicitly contained in the paragraph.  
   2. The question **MUST NOT** contain any meta-references such as  
@@ -23,7 +22,6 @@ prompt_template: |
   4. If no valid chemistry question can be written without breaking a rule, output  
      `{{"question": ""}}`
 
-  ──────────────────────────────────
   ## ❷ QUALITY TARGETS ⭐
   ### ❷-A  Depth tiers  (pick the deepest still-answerable)
   When several valid questions are possible, **prefer the deepest still-answerable option**:
@@ -43,7 +41,6 @@ prompt_template: |
   2. **Keeps essential domain terms** (chemical species, units, parameters) so the
      semantic link remains clear.  
 
-  ──────────────────────────────────
   ## ❹ MINI CONTRAST PAIRS  (learn by example)
 
   Bad → Good (remove meta-phrases)  
@@ -61,7 +58,7 @@ prompt_template: |
   No valid question → Empty string
   Text: The specifics of these systems are presented in Table , but in general 5 systems were created as reference systems without any disaccharide, while the other 10 were composed of different combinations of the two peptides and disaccharides.
   `{{"question": ""}}`
-  ──────────────────────────────────
+
   ## ❺ FULL EXAMPLE
 
   Paragraph ►  
@@ -75,7 +72,6 @@ prompt_template: |
   *How does extended conjugation in a fluorescent dye influence its absorption and
   emission wavelengths?*
 
-  ──────────────────────────────────
   ## ❻ THINK-THEN-WRITE PROCEDURE
 
   1. **Scan** the paragraph, list 2–3 potential Tier A/B questions.  
@@ -91,5 +87,8 @@ prompt_template: |
   Now it's your time to answer.  
   Text: {text}
 
-params:
-  temperature: 0.0
+max_completion_tokens: 1088
+num_workers: 4
+cooldown: 0.5
+is_reasoning: true
+sample_size: 5000

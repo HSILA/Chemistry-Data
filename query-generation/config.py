@@ -25,7 +25,6 @@ class BaseQueryGenerationConfig(BaseModel):
         ..., description="Template query string for generating requests."
     )
 
-
     @field_validator("data_path")
     def validate_data_path(cls, v):
         if os.path.exists(v) or v.lower().endswith(".csv"):
@@ -45,4 +44,39 @@ class BatchQueryGenerationConfig(BaseQueryGenerationConfig):
     shard_size: int = Field(
         50000,
         description="Number of records per shard for generating batch requests. Default is 50,000 (max for OpenAI).",
+    )
+
+
+class BedrockQueryGenerationConfig(BaseQueryGenerationConfig):
+    max_completion_tokens: int = Field(
+        1024,
+        description="Maximum number of tokens allowed in the model's completion output.",
+    )
+    temperature: float = Field(
+        0.0,
+        description="Sampling temperature for the Bedrock model. Controls randomness of outputs.",
+    )
+    num_workers: int = Field(
+        4,
+        description="Number of concurrent workers to use for batch/concurrent processing.",
+    )
+    cooldown: float = Field(
+        0.5,
+        description="Cooldown time in seconds between Bedrock API calls to avoid throttling.",
+    )
+    is_reasoning: bool = Field(
+        False, description="Indicating whether the model is reasoning or not."
+    )
+    sample_size: Optional[int] = Field(
+        None, description="Exact number of records to randomly sample (seeded)."
+    )
+    sample_frac: Optional[float] = Field(
+        None, description="Fraction of the dataset to sample (seeded)."
+    )
+    random_seed: Optional[int] = Field(
+        42, description="Seed for reproducible sampling."
+    )
+    sample_ids_file: str = Field(
+        "sampled_ids.json",
+        description="Filename (in root_dir) to save/load sampled IDs.",
     )
