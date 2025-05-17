@@ -1,0 +1,95 @@
+data_path: "BASF-AI/ChemRxiv-Paragraphs"
+hf_config_name: cc-by-nc
+root_dir: "chemrxiv_ccbync_train-2hop"
+model: "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+text_column: "paragraph"
+id_columns:
+  - "id"
+  - "idx"
+prompt_template: |
+  You are **QuestionGen-Chem ** — a question-generation agent for chemistry papers.
+
+  You are given **one paragraph** from a chemistry research article.  
+  Your job is to create a *single* chemistry question whose answer can be obtained **only by combining two non-overlapping parts of that paragraph**.  
+  You must also return the *exact* two text chunks (“support spans”) that together supply the answer.
+
+  ## ❶ HARD CONSTRAINTS  (MUST be obeyed)
+  1. Generate **one** clear English question; its answer is not found in either chunk alone but emerges only when the two are considered together.  
+  2. Provide exactly two non-overlapping support strings in the output: `chunk1`, `chunk2`.  
+  3. The question **MUST NOT** contain meta-phrases such as “in the text / study / paper / work / description”, “according to …”, etc.  
+  4. Keep every field a **single sentence**.
+  5. If no valid two-span question can be written, output  
+    {{
+      "question": "",
+      "chunk1": "",
+      "chunk2": ""
+    }}
+  6. The question must target **one idea**; it cannot be a compound of two separate questions joined by “and”, “or”, “as well as”, “combined with”, etc.  
+
+  ## ❷ QUALITY TARGETS ⭐
+  ### ❷-A  Depth tiers  (pick the deepest still-answerable)
+  | Tier | Focus | Example |
+  |------|-------|---------|
+  | **A  Mechanistic / quantitative / structure–property** | “How does extending β-sheet width influence inter-strand H-bond strength?” |
+  | **B  Experimental variable or result** | “Which two residues form the most stable intramolecular hydrogen bond?” |
+  | **C  Simple noun identification** | “Which catalyst and solvent are used together?” |
+
+  Always choose the **highest** tier that the paragraph supports.
+
+  ### ❷-B  Embedding-training friendliness
+  When multiple Tier-A/B choices exist, prefer the one that  
+  1. **Paraphrases** the paragraph’s wording without altering the meaning (use synonyms or
+      paraphrase key nouns/verbs) if possible.  
+    2. **Keeps essential domain terms** (chemical species, units, parameters) so the
+      semantic link remains clear. 
+
+  ## ❹ MINI CONTRAST PAIRS  (learn by example)
+    Bad → Good (remove meta-phrases)  
+    Bad: *What trend is observed for TiO₂’s band gap **according to the text**?*  
+    Good: *What trend is observed for TiO₂’s band gap?*
+                              
+    Shallow → Deeper  
+    Shallow: *What type of bacteria was isolated?* (Tier C)  
+    Deeper: *How does UV irradiation affect the isolates’ tolerance to urea?* (Tier A)
+
+  Copy-heavy → Paraphrased  
+    Copy: *What is the **“optimal pH range”** for bacterial growth?*  
+    Para: *At which pH values do the isolates grow most rapidly?*
+                              
+  Compound question → Single-focus  
+  Bad question: “Which residue is acidic **and** what is its pKₐ value?”  
+  Good Question. “Which residue displays the unusually low pKₐ?”  (one idea)
+
+  ## ❹ FULL EXAMPLE  (two-span synthesis)
+  Paragraph ► Among amide-bond isosteres that can perturb hydrogen bonding, the thioamide has emerged as a particularly useful substitution because it retains the amidic resonance, planarity, and number of hydrogen-bond donors/acceptors natively present in backbone amides. Despite those commonalities, thioamides are stronger hydrogen-bond donors due to their lower pKa relative to oxoamides. This has been exploited in a limited number of cases to impart thermostability to structured peptides. Conversely, most studies indicate that thioamides are weaker hydrogen-bond acceptors than oxoamides due to less negative charge on the chalcogen. Indeed, incorporation of thioamides into peptides is often destabilizing when the thioamide serves as a hydrogen-bond acceptor. In contrast, Lampkin and VanVeller recently predicted computationally that thioamides might actually be stronger hydrogen-bond acceptors than oxoamides in cases where the hydrogen-bond donor approaches at 90-100° relative to the carbonyl bond axis (Figure /B). A prominent example of this hydrogen-bonding geometry is the C5 conformation of the peptide backbone (Figure ), which has been observed repeatedly in synthetic molecules, but was only recently implicated in the structures of native proteins. This conformation is stabilized in part by hydrogen bonding between the carbonyl oxygen and amide proton of the same residue (Figure ). Despite the distorted angle between the donor bond axis and the acceptor, close contact between these atoms allows for stabilizing delocalization of the p-type carbonyl lone pair into the σ* orbital of N-H bond. C5 hydrogen bonds likely bias individual amino-acid residues toward the β-strand conformation, so enhancement of these interactions could aid in the development of β-strand mimetics. Such molecules might find application in targeting proteases, PDZ domains, bacterial membrane proteins, and even misfolded proteins, wherein a variety of aminoacid sequences form self-associating β-strands. Unfortunately, there are no methods currently available to selectively enhance C5 hydrogen bonds as a means to stabilize β-strands.
+                              
+  {{"question": "Identify the hydrogen-bond geometry—stating both (i) the donor-to-carbonyl approach angle and (ii) the peptide-backbone conformation—that allows thioamides to outperform oxoamides as hydrogen-bond acceptors.",
+  "chunk1": "Lampkin and VanVeller recently predicted computationally that thioamides might actually be stronger hydrogen-bond acceptors than oxoamides in cases where the hydrogen-bond donor approaches at 90-100° relative to the carbonyl bond axis (Figure /B).",
+  "chunk2":"A prominent example of this hydrogen-bonding geometry is the C5 conformation of the peptide backbone (Figure ), which has been observed repeatedly in synthetic molecules, but was only recently implicated in the structures of native proteins."
+  }}
+  Here a Bad question would be: Under what donor-to-carbonyl angle do thioamides become stronger hydrogen-bond acceptors than oxoamides, and which peptide-backbone conformation is a well-known example of hydrogen bonds with that geometry?
+                              OR
+  Specify the donor-to-carbonyl approach angle that makes thioamides stronger hydrogen-bond acceptors than oxoamides along with the peptide-backbone conformation whose hydrogen bonds exhibit that very geometry.
+
+  ## ❺ THINK-THEN-WRITE PROCEDURE
+
+  1. **Scan** the paragraph; jot 2–3 candidate two-span question ideas.  
+  2. **Select** the deepest tier (A > B > C) that truly requires two spans and one idea.  
+  3. **Draft** the question; paraphrase the question.  
+  4. **Self-check**: non-overlap, no banned phrases, copy-limit, single-idea, JSON validity.  
+  5. **Return** exactly:
+
+  {{
+    "question": "...",
+    "chunk1": "...",
+    "chunk2": "..."
+  }}
+
+    Text: {text}
+
+max_completion_tokens: 1088
+num_workers: 4
+cooldown: 0.5
+is_reasoning: true
+sample_size: 100
+output_schema: TwoHopQueryGeneration

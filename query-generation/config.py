@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, field_validator
 import os
-from typing import Optional
+from typing import Optional, Literal
 
 
 class BaseQueryGenerationConfig(BaseModel):
@@ -74,9 +74,13 @@ class BedrockQueryGenerationConfig(BaseQueryGenerationConfig):
         None, description="Fraction of the dataset to sample (seeded)."
     )
     random_seed: Optional[int] = Field(
-        42, description="Seed for reproducible sampling."
+        None, description="Seed for reproducible sampling."
     )
     sample_ids_file: str = Field(
         "sampled_ids.json",
         description="Filename (in root_dir) to save/load sampled IDs.",
+    )
+    output_schema: Literal["QueryGeneration", "TwoHopQueryGeneration"] = Field(
+        "QueryGeneration",
+        description="Name of the output schema to use: 'QueryGeneration' or 'TwoHopQueryGeneration'."
     )

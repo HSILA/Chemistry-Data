@@ -1,6 +1,6 @@
 data_path: "BASF-AI/ChemRxiv-Paragraphs"
 hf_config_name: cc-by-nc
-root_dir: "chemrxiv_ccbync_train"
+root_dir: "chemrxiv_ccbync_eval"
 model: "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
 text_column: "paragraph"
 id_columns:
@@ -91,4 +91,5 @@ max_completion_tokens: 1088
 num_workers: 4
 cooldown: 0.5
 is_reasoning: true
-sample_size: 5000
+sample_size: 5200
+random_seed: 24

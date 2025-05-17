@@ -32,6 +32,27 @@ class QueryGeneration(BaseModel):
     )
 
 
+class TwoHopQueryGeneration(BaseModel):
+    question: str = Field(
+        ...,
+        description="A two‐hop question generated from the paragraph, requiring information from both chunks.",
+    )
+    chunk1: str = Field(
+        ...,
+        description="The first text chunk from the paragraph used to generate the question.",
+    )
+    chunk2: str = Field(
+        ...,
+        description="The second text chunk from the paragraph used to generate the question.",
+    )
+
+
+SCHEMA_MAP = {
+    "QueryGeneration": QueryGeneration,
+    "TwoHopQueryGeneration": TwoHopQueryGeneration,
+}
+
+
 class StructuredLLM:
     def __init__(
         self,
@@ -42,6 +63,7 @@ class StructuredLLM:
         self.max_completion_tokens = config.max_completion_tokens
         self.is_reasoning = config.is_reasoning
         self.thinking_params = None
+        self.output_schema = SCHEMA_MAP[config.output_schema]
 
         if self.is_reasoning:
             if "claude-3-7" in self.model_id:
@@ -76,14 +98,14 @@ class StructuredLLM:
         """Extract and parse JSON from text string."""
         try:
             parsed_json = JsonOutputParser().invoke(text_to_parse)
-            parsed_output = QueryGeneration.model_validate(parsed_json)
+            parsed_output = self.output_schema.model_validate(parsed_json)
         except Exception as e:
             regex_match = re.search(r"(\{.*\})", text_to_parse, re.DOTALL)
             if regex_match:
                 cleaned_text = regex_match.group(1)
                 try:
                     parsed_json = JsonOutputParser().invoke(cleaned_text)
-                    parsed_output = QueryGeneration.model_validate(parsed_json)
+                    parsed_output = self.output_schema.model_validate(parsed_json)
                 except Exception as e:
                     print(f"Error parsing JSON: {e}")
                     parsed_output = self._generate_empty_output()
@@ -161,7 +183,7 @@ class StructuredLLM:
             additional_model_request_fields=self.thinking_params,
         )
         llm = (
-            llm.with_structured_output(QueryGeneration, include_raw=True)
+            llm.with_structured_output(self.output_schema, include_raw=True)
             if self.model_id
             not in ["us.deepseek.r1-v1:0", "mistral.mistral-large-2402-v1:0"]
             else llm
@@ -213,7 +235,7 @@ class StructuredLLM:
 
     def _generate_empty_output(self):
         """Create an empty instance of the output format."""
-        field_types = QueryGeneration.__annotations__
+        field_types = self.output_schema.__annotations__
         fields = {}
         for field_name, field_type in field_types.items():
             if field_type == str:
@@ -226,7 +248,7 @@ class StructuredLLM:
                 fields[field_name] = 0.0
             else:
                 fields[field_name] = None
-        return QueryGeneration(**fields)
+        return self.output_schema(**fields)
 
     def __call__(self, prompt: str) -> dict[str, Any]:
         messages = [{"role": "user", "content": [{"text": prompt}]}]
@@ -321,14 +343,11 @@ class Generator:
 
         prompt = config.prompt_template.format(text=record[config.text_column])
         response = qa_llm(prompt)
-        question = (
-            response["parsed_output"].question
-            if response["parsed_output"] is not None
-            else None
-        )
+        parsed_output = response["parsed_output"]
+        output_fields = parsed_output.model_dump() if parsed_output is not None else {}
 
         result = {
-            "question": question,
+            **output_fields,
             "raw": record,
             "raw_response": response.get("raw_response", None),
             "input_tokens": response.get("input_tokens", 0),
@@ -409,7 +428,19 @@ class Generator:
                 raw = entry.get("raw", {})
                 out = {c: raw.get(c) for c in self.config.id_columns}
                 out[self.config.text_column] = raw.get(self.config.text_column)
-                out["generated_query"] = entry.get("question", "")
+                output_keys = set(entry.keys()) - {
+                    "raw",
+                    "raw_response",
+                    "input_tokens",
+                    "output_tokens",
+                    "reasoning_tokens",
+                    "latency",
+                    "date",
+                    "reasoning",
+                    "error",
+                }
+                for key in output_keys:
+                    out[key] = entry.get(key, "")
                 rows.append(out)
         df = pd.DataFrame(rows)
         out_path = os.path.join(self.root_dir, "results.csv")
