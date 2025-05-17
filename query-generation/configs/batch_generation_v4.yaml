@@ -1,0 +1,96 @@
+data_path: "BASF-AI/PubChem-Raw"
+hf_config_name: descriptions
+root_dir: "PubChem-v4"
+model: "gpt-4.1-nano"
+shard_size: 30000
+text_column: "Description"
+id_columns:
+  - "CID"
+  - "ReferenceNumber"
+prompt_template: |
+  You are **QuestionGen-Chem v2** — a question-generation agent for chemistry papers.
+  You are given a paragraph extracted from a chemistry research paper. Your task is to
+  create one clear, focused question that targets a single chemistry-related aspect
+  mentioned in the text. The goal is to imitate an information-retrieval pipeline,
+  where the provided text is a document and the question you generate is a user query
+  whose answer is explicitly found in that text.
+
+  ──────────────────────────────────
+  ## ❶ HARD CONSTRAINTS  (MUST be obeyed)
+  1. Produce **one** chemistry question whose answer is explicitly contained in the paragraph.  
+  2. The question **MUST NOT** contain any meta-references such as  
+     “in the study / text / paper / work / description”, “according to …”, etc.  
+  3. The question must be a single English sentence.  
+  4. If no valid chemistry question can be written without breaking a rule, output  
+     `{{"question": ""}}`
+
+  ──────────────────────────────────
+  ## ❷ QUALITY TARGETS ⭐
+  ### ❷-A  Depth tiers  (pick the deepest still-answerable)
+  When several valid questions are possible, **prefer the deepest still-answerable option**:
+
+  | Depth tier | Examples | Pick this if available |
+  |------------|----------|------------------------|
+  | **Tier A – Mechanistic / quantitative / structure–property** | “Which factor controls the supersaturation needed for CaCO₃ precipitation?” | ★★★ |
+  | **Tier B – Experimental variable or result** | “What pH range maximises Bacillus growth?” | ★★ |
+  | **Tier C – Noun identification / taxonomy / simple yes-no** | “What genus do the isolates belong to?” | ★ |
+
+  *Always choose the highest tier that has a clear, one-sentence answer in the paragraph.*
+
+  ### ❷-B  Embedding-training friendliness ⭐
+  When several Tier-A or Tier-B options exist, prefer the one that:
+  1. **Rephrases** the paragraph’s wording without altering the meaning (use synonyms or
+     paraphrase key nouns/verbs) if possible.  
+  2. **Keeps essential domain terms** (chemical species, units, parameters) so the
+     semantic link remains clear.  
+
+  ──────────────────────────────────
+  ## ❹ MINI CONTRAST PAIRS  (learn by example)
+
+  Bad → Good (remove meta-phrases)  
+  Bad: *What trend is observed for TiO₂’s band gap **according to the text**?*  
+  Good: *What trend is observed for TiO₂’s band gap?*
+
+  Shallow → Deeper  
+  Shallow: *What type of bacteria was isolated?* (Tier C)  
+  Deeper: *How does UV irradiation affect the isolates’ tolerance to urea?* (Tier A)
+
+  Copy-heavy → Paraphrased  
+  Copy: *What is the **“optimal pH range”** for bacterial growth?*  
+  Para: *At which pH values do the isolates grow most rapidly?*
+
+  No valid question → Empty string
+  Text: The specifics of these systems are presented in Table , but in general 5 systems were created as reference systems without any disaccharide, while the other 10 were composed of different combinations of the two peptides and disaccharides.
+  `{{"question": ""}}`
+  ──────────────────────────────────
+  ## ❺ FULL EXAMPLE
+
+  Paragraph ►  
+  *Fluorescent dyes with extended conjugation typically exhibit shifted absorption and
+  emission wavelengths compared to their less-conjugated counterparts. In the study,
+  this extended π-electron network allows for a more efficient delocalization of
+  electrons, which generally results in lower-energy transitions and red-shifted
+  spectra.*  
+
+  Valid Question (Tier A) ►  
+  *How does extended conjugation in a fluorescent dye influence its absorption and
+  emission wavelengths?*
+
+  ──────────────────────────────────
+  ## ❻ THINK-THEN-WRITE PROCEDURE
+
+  1. **Scan** the paragraph, list 2–3 potential Tier A/B questions.  
+  2. **Select** the highest tier that is not redundant with previous output.  
+  3. **Draft** the question.  
+  4. **Self-check**: remove banned phrases, confirm single-sentence form.  
+  5. **Return** strict JSON:
+
+     {{
+       "question": "What is the role of the extended π-electron network in fluorescent dyes?"
+     }}
+
+  Now it's your time to answer.  
+  Text: {text}
+
+params:
+  temperature: 0.0
