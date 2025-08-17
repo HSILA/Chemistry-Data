@@ -1,0 +1,17 @@
+download:
+  save_path: ./PubChem/data
+  max_cid: 50000
+  batch_size: 1000
+  batch_delay: 120
+  cooldown_time: 120
+  request_delay: 3
+  # predefined_cids_path: ./PubChem/configs/sample_cids.json   # Path to JSON list of CIDs
+
+parse:
+  jsons_dir: ./PubChem/data
+  comp_csv: ./PubChem/compounds.csv
+  desc_csv: ./PubChem/descriptions.csv
+  batch_size: 1000
+
+
+
