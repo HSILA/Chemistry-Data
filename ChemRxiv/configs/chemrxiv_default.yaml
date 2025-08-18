@@ -1,0 +1,17 @@
+gather:
+  jsonl_path: ./ChemRxiv/files/chemrxiv_metadata.jsonl
+  csv_path: ./ChemRxiv/files/chemrxiv_metadata.csv
+  batch_size: 1000
+  batch_delay: 120
+  cooldown_time: 120
+  request_delay: 2.0
+
+download:
+  jsonl_path: ./ChemRxiv/files/chemrxiv_metadata.jsonl
+  download_dir: ./ChemRxiv/files/papers
+  batch_size: 1000
+  batch_delay: 120
+  cooldown_time: 120
+  request_delay: 1.0
+
+
