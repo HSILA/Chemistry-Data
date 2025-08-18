@@ -11,3 +11,8 @@ langchain-aws==0.2.15
 blingfire
 cached_path
 git+https://github.com/nicholishen/tooldantic.git
+pyyaml
+pydantic
+datasets
+boto3
+langchain-core
