@@ -181,7 +181,7 @@ def xml_to_text(
     for file in tqdm.tqdm(xlm_files):
         xml_path = os.path.join(src_path, file)
         id, _ = os.path.splitext(file)
-        id = id.split('.')[0] if '.' in id else id
+        id = id.split(".")[0] if "." in id else id
         json_output_path = os.path.join(dst_path, f"{id}-paragraphs.json")
 
         paragraphs = extract_paragraphs(xml_path, concat_p)
@@ -235,7 +235,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--concat-p",
-        action='store_true',
+        action="store_true",
         help="Concatenate all paragraphs within a <div> into a single text.",
     )
 

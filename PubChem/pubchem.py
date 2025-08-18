@@ -1,9 +1,13 @@
-
 import requests
 import json
 import time
 import os
-from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
+from tenacity import (
+    retry,
+    wait_exponential,
+    stop_after_attempt,
+    retry_if_exception_type,
+)
 import tqdm
 import pandas as pd
 import argparse
@@ -17,9 +21,15 @@ class DownloadConfig(BaseModel):
     max_cid: int = Field(..., description="Maximum compound CID to download")
     save_path: str = Field(..., description="Directory to save downloaded JSON files")
     batch_size: int = Field(1000, description="Number of requests per batch")
-    batch_delay: int = Field(120, description="Delay in seconds after retrieving each batch")
-    cooldown_time: int = Field(120, description="Cooldown time in seconds on connection errors")
-    request_delay: int = Field(3, description="Delay in seconds between consecutive requests")
+    batch_delay: int = Field(
+        120, description="Delay in seconds after retrieving each batch"
+    )
+    cooldown_time: int = Field(
+        120, description="Cooldown time in seconds on connection errors"
+    )
+    request_delay: int = Field(
+        3, description="Delay in seconds between consecutive requests"
+    )
     predefined_cids_path: Optional[str] = Field(
         None,
         description="Path to a JSON file containing a list of CIDs to retrieve. If provided, downloader only retrieves these CIDs.",
@@ -27,9 +37,15 @@ class DownloadConfig(BaseModel):
 
 
 class ParseConfig(BaseModel):
-    jsons_dir: str = Field("./PubChem", description="Directory containing downloaded JSON files")
-    comp_csv: str = Field("compounds.csv", description="CSV file to output compounds data")
-    desc_csv: str = Field("descriptions.csv", description="CSV file to output descriptions data")
+    jsons_dir: str = Field(
+        "./PubChem", description="Directory containing downloaded JSON files"
+    )
+    comp_csv: str = Field(
+        "compounds.csv", description="CSV file to output compounds data"
+    )
+    desc_csv: str = Field(
+        "descriptions.csv", description="CSV file to output descriptions data"
+    )
     batch_size: int = Field(1000, description="Batch size for processing JSON files")
 
 
@@ -53,14 +69,24 @@ def robust_get(url):
 
 
 def get_last_cid(save_path):
-    files = [f for f in os.listdir(save_path) if f.startswith("cid_") and f.endswith(".json")]
+    files = [
+        f for f in os.listdir(save_path) if f.startswith("cid_") and f.endswith(".json")
+    ]
     if not files:
         return 0
     cids = [int(f.split("_")[1].split(".")[0]) for f in files]
     return max(cids)
 
 
-def download_pubchem(max_cid, save_path, batch_size, batch_delay, cooldown_time, request_delay, predefined_cids_path: Optional[str] = None):
+def download_pubchem(
+    max_cid,
+    save_path,
+    batch_size,
+    batch_delay,
+    cooldown_time,
+    request_delay,
+    predefined_cids_path: Optional[str] = None,
+):
     os.makedirs(save_path, exist_ok=True)
     num_requests = 0
 
@@ -75,7 +101,9 @@ def download_pubchem(max_cid, save_path, batch_size, batch_delay, cooldown_time,
             print(f"Using predefined CIDs list with {len(predefined_cids)} entries.")
             total = len(predefined_cids)
         except Exception as e:
-            raise RuntimeError(f"Failed to read predefined CIDs from {predefined_cids_path}: {e}")
+            raise RuntimeError(
+                f"Failed to read predefined CIDs from {predefined_cids_path}: {e}"
+            )
     else:
         last_cid = get_last_cid(save_path)
         message = (
@@ -85,9 +113,13 @@ def download_pubchem(max_cid, save_path, batch_size, batch_delay, cooldown_time,
         )
         print(message)
         start_cid = last_cid + 1
-        total = (max_cid - start_cid + 1)
+        total = max_cid - start_cid + 1
 
-    cid_iterable = predefined_cids if predefined_cids is not None else range(start_cid, max_cid + 1)
+    cid_iterable = (
+        predefined_cids
+        if predefined_cids is not None
+        else range(start_cid, max_cid + 1)
+    )
 
     for cid in tqdm.tqdm(cid_iterable, total=total):
         while True:
@@ -102,14 +134,17 @@ def download_pubchem(max_cid, save_path, batch_size, batch_delay, cooldown_time,
                 break
             except requests.ConnectionError as e:
                 print(
-                    f"Failed to fetch CID {cid} after retries: {e}. Waiting {cooldown_time}s before continuing.")
+                    f"Failed to fetch CID {cid} after retries: {e}. Waiting {cooldown_time}s before continuing."
+                )
                 time.sleep(cooldown_time)
             except Exception as e:
                 print(f"Unexpected error for CID {cid}: {e}. Skipping.")
                 break
         time.sleep(request_delay)
         if num_requests > 0 and num_requests % batch_size == 0:
-            print(f"\nBatch complete: {num_requests} requests sent. Waiting {batch_delay}s...")
+            print(
+                f"\nBatch complete: {num_requests} requests sent. Waiting {batch_delay}s..."
+            )
             time.sleep(batch_delay)
 
 
@@ -157,7 +192,9 @@ def get_section(sections, key):
 
 def get_descriptions(names_identifiers_section):
     ref_desc = {}
-    records_desc = get_section(names_identifiers_section["Section"], "Record Description")
+    records_desc = get_section(
+        names_identifiers_section["Section"], "Record Description"
+    )
     if records_desc is None:
         return ref_desc
     for item in records_desc["Information"]:
@@ -168,11 +205,15 @@ def get_descriptions(names_identifiers_section):
 
 
 def get_descriptors(names_identifiers_section):
-    computed_descriptors = get_section(names_identifiers_section["Section"], "Computed Descriptors")
+    computed_descriptors = get_section(
+        names_identifiers_section["Section"], "Computed Descriptors"
+    )
     iupac_name = smiles = inchi = None
     for item in computed_descriptors["Section"]:
         if item["TOCHeading"] == "IUPAC Name":
-            iupac_name = item["Information"][0]["Value"]["StringWithMarkup"][0]["String"]
+            iupac_name = item["Information"][0]["Value"]["StringWithMarkup"][0][
+                "String"
+            ]
         elif item["TOCHeading"] == "InChI":
             inchi = item["Information"][0]["Value"]["StringWithMarkup"][0]["String"]
         elif item["TOCHeading"] == "SMILES":
@@ -181,7 +222,9 @@ def get_descriptors(names_identifiers_section):
 
 
 def get_molecular_formula(names_identifiers_section):
-    molecular_formula = get_section(names_identifiers_section["Section"], "Molecular Formula")
+    molecular_formula = get_section(
+        names_identifiers_section["Section"], "Molecular Formula"
+    )
     return molecular_formula["Information"][0]["Value"]["StringWithMarkup"][0]["String"]
 
 
@@ -252,10 +295,15 @@ def process_json_files(jsons_dir, comp_csv, desc_csv, batch_size):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="PubChem downloader and parser using YAML config with Pydantic")
+        description="PubChem downloader and parser using YAML config with Pydantic"
+    )
     parser.add_argument("--config", required=True, help="Path to YAML config file")
-    parser.add_argument("--stage", required=True,
-                        choices=["download", "parse"], help="Stage to run: download or parse")
+    parser.add_argument(
+        "--stage",
+        required=True,
+        choices=["download", "parse"],
+        help="Stage to run: download or parse",
+    )
     args = parser.parse_args()
 
     with open(args.config, "r") as file:
@@ -281,5 +329,5 @@ if __name__ == "__main__":
             jsons_dir=pr.jsons_dir,
             comp_csv=pr.comp_csv,
             desc_csv=pr.desc_csv,
-            batch_size=pr.batch_size
+            batch_size=pr.batch_size,
         )

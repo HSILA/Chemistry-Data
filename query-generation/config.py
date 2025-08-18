@@ -82,5 +82,5 @@ class BedrockQueryGenerationConfig(BaseQueryGenerationConfig):
     )
     output_schema: Literal["QueryGeneration", "TwoHopQueryGeneration"] = Field(
         "QueryGeneration",
-        description="Name of the output schema to use: 'QueryGeneration' or 'TwoHopQueryGeneration'."
+        description="Name of the output schema to use: 'QueryGeneration' or 'TwoHopQueryGeneration'.",
     )

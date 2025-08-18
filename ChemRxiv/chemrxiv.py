@@ -13,32 +13,34 @@ from config import ChemRxivConfig
 
 
 class ChemRxivAPI:
-    base = 'https://chemrxiv.org/engage/chemrxiv/public-api/v1'
+    base = "https://chemrxiv.org/engage/chemrxiv/public-api/v1"
     pagesize = 50
 
     def request(self, url, method, params):
-        if method.casefold() == 'get':
+        if method.casefold() == "get":
             return requests.get(url, params=params, timeout=30)
-        elif method.casefold() == 'post':
+        elif method.casefold() == "post":
             return requests.post(url, json=params, timeout=30)
         else:
-            raise Exception(f'Unknown method for query: {method}')
+            raise Exception(f"Unknown method for query: {method}")
 
-    def query(self, query, method='get', params=None):
-        r = self.request(f'{self.base}/{query}', method, params)
+    def query(self, query, method="get", params=None):
+        r = self.request(f"{self.base}/{query}", method, params)
         r.raise_for_status()
         return r.json()
 
-    def query_generator(self, query, method='get', params=None) -> Iterable[Dict[str, Any]]:
+    def query_generator(
+        self, query, method="get", params=None
+    ) -> Iterable[Dict[str, Any]]:
         if params is None:
             params = {}
         n = 0
         while True:
-            page_params = {**params, 'limit': self.pagesize, 'skip': n * self.pagesize}
-            r = self.request(f'{self.base}/{query}', method, page_params)
+            page_params = {**params, "limit": self.pagesize, "skip": n * self.pagesize}
+            r = self.request(f"{self.base}/{query}", method, page_params)
             r.raise_for_status()
             payload = r.json()
-            items = payload.get('itemHits', [])
+            items = payload.get("itemHits", [])
             if not items:
                 return
             for item in items:
@@ -46,10 +48,10 @@ class ChemRxivAPI:
             n += 1
 
     def all_preprints(self) -> Iterable[Dict[str, Any]]:
-        return self.query_generator('items')
+        return self.query_generator("items")
 
     def number_of_preprints(self) -> int:
-        return self.query('items').get('totalCount', 0)
+        return self.query("items").get("totalCount", 0)
 
 
 def ensure_dir(path: str):
@@ -67,8 +69,8 @@ def safe_filename(filename: str, max_length: int = 255) -> str:
 
 def gather_metadata(cfg: ChemRxivConfig):
     g = cfg.gather
-    ensure_dir(os.path.dirname(g.jsonl_path) or '.')
-    ensure_dir(os.path.dirname(g.csv_path) or '.')
+    ensure_dir(os.path.dirname(g.jsonl_path) or ".")
+    ensure_dir(os.path.dirname(g.csv_path) or ".")
 
     api = ChemRxivAPI()
     total = api.number_of_preprints()
@@ -78,12 +80,12 @@ def gather_metadata(cfg: ChemRxivConfig):
     existing_ids = set()
     if os.path.exists(g.jsonl_path):
         try:
-            with open(g.jsonl_path, 'r') as existing:
+            with open(g.jsonl_path, "r") as existing:
                 for line in existing:
                     try:
                         obj = json.loads(line)
-                        item = obj.get('item', {})
-                        pid = item.get('id')
+                        item = obj.get("item", {})
+                        pid = item.get("id")
                         if pid:
                             existing_ids.add(pid)
                     except json.JSONDecodeError:
@@ -92,15 +94,27 @@ def gather_metadata(cfg: ChemRxivConfig):
             existing_ids = set()
 
     num_written = 0
-    jsonl_f = open(g.jsonl_path, 'a')
+    jsonl_f = open(g.jsonl_path, "a")
 
     # Columns: id, doi, title, abstract, publishedDate, submittedDate, status, version, license, keywords, authors, pdf_url
     csv_columns = [
-        'id', 'doi', 'title', 'abstract', 'publishedDate', 'submittedDate', 'status',
-        'version', 'license', 'keywords', 'authors', 'pdf_url'
+        "id",
+        "doi",
+        "title",
+        "abstract",
+        "publishedDate",
+        "submittedDate",
+        "status",
+        "version",
+        "license",
+        "keywords",
+        "authors",
+        "pdf_url",
     ]
-    csv_needs_header = not os.path.exists(g.csv_path) or os.path.getsize(g.csv_path) == 0
-    csv_file = open(g.csv_path, 'a', newline='')
+    csv_needs_header = (
+        not os.path.exists(g.csv_path) or os.path.getsize(g.csv_path) == 0
+    )
+    csv_file = open(g.csv_path, "a", newline="")
     csv_writer = csv.DictWriter(csv_file, fieldnames=csv_columns)
     if csv_needs_header:
         csv_writer.writeheader()
@@ -109,8 +123,8 @@ def gather_metadata(cfg: ChemRxivConfig):
         for i, preprint in enumerate(tqdm.tqdm(generator, total=total)):
             time.sleep(g.request_delay)
 
-            item = preprint.get('item', {})
-            pid = item.get('id')
+            item = preprint.get("item", {})
+            pid = item.get("id")
             if not pid:
                 continue
 
@@ -118,37 +132,39 @@ def gather_metadata(cfg: ChemRxivConfig):
                 continue
 
             # append JSONL line
-            jsonl_f.write(json.dumps(preprint) + '\n')
+            jsonl_f.write(json.dumps(preprint) + "\n")
 
             # extract CSV row
-            license_name = (item.get('license') or {}).get('name')
-            keywords_list = item.get('keywords') or []
-            authors_list = item.get('authors') or []
+            license_name = (item.get("license") or {}).get("name")
+            keywords_list = item.get("keywords") or []
+            authors_list = item.get("authors") or []
             authors_names = []
             for a in authors_list:
-                first = a.get('firstName') or ''
-                last = a.get('lastName') or ''
-                full = (first + ' ' + last).strip() or None
+                first = a.get("firstName") or ""
+                last = a.get("lastName") or ""
+                full = (first + " " + last).strip() or None
                 if full:
                     authors_names.append(full)
-            asset = item.get('asset') or {}
-            pdf_url = (asset.get('original') or {}).get('url') if asset else None
-            if not pdf_url and 'original' in asset:
-                pdf_url = asset['original'].get('url')
+            asset = item.get("asset") or {}
+            pdf_url = (asset.get("original") or {}).get("url") if asset else None
+            if not pdf_url and "original" in asset:
+                pdf_url = asset["original"].get("url")
 
             row = {
-                'id': pid,
-                'doi': item.get('doi'),
-                'title': item.get('title'),
-                'abstract': item.get('abstract'),
-                'publishedDate': item.get('publishedDate'),
-                'submittedDate': item.get('submittedDate'),
-                'status': item.get('status'),
-                'version': item.get('version'),
-                'license': license_name,
-                'keywords': '; '.join(keywords_list) if isinstance(keywords_list, list) else keywords_list,
-                'authors': '; '.join(authors_names),
-                'pdf_url': pdf_url,
+                "id": pid,
+                "doi": item.get("doi"),
+                "title": item.get("title"),
+                "abstract": item.get("abstract"),
+                "publishedDate": item.get("publishedDate"),
+                "submittedDate": item.get("submittedDate"),
+                "status": item.get("status"),
+                "version": item.get("version"),
+                "license": license_name,
+                "keywords": "; ".join(keywords_list)
+                if isinstance(keywords_list, list)
+                else keywords_list,
+                "authors": "; ".join(authors_names),
+                "pdf_url": pdf_url,
             }
             csv_writer.writerow(row)
             num_written += 1
@@ -169,16 +185,16 @@ def download_pdfs(cfg: ChemRxivConfig):
     ensure_dir(d.download_dir)
 
     candidates = []
-    with open(d.jsonl_path, 'r') as f_in:
+    with open(d.jsonl_path, "r") as f_in:
         for line in f_in:
             try:
                 preprint = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            item = preprint.get('item', {})
-            pid = item.get('id')
-            original = (item.get('asset') or {}).get('original') or {}
-            url = original.get('url')
+            item = preprint.get("item", {})
+            pid = item.get("id")
+            original = (item.get("asset") or {}).get("original") or {}
+            url = original.get("url")
             if not pid or not url:
                 continue
             filename = safe_filename(f"{pid}.pdf")
@@ -187,11 +203,13 @@ def download_pdfs(cfg: ChemRxivConfig):
                 candidates.append((url, filepath))
 
     num = 0
-    for url, filepath in tqdm.tqdm(candidates, total=len(candidates), desc="Downloading PDFs"):
+    for url, filepath in tqdm.tqdm(
+        candidates, total=len(candidates), desc="Downloading PDFs"
+    ):
         try:
             resp = requests.get(url, timeout=60)
             if resp.status_code == 200:
-                with open(filepath, 'wb') as out:
+                with open(filepath, "wb") as out:
                     out.write(resp.content)
                 num += 1
         except requests.exceptions.RequestException:
@@ -204,10 +222,12 @@ def download_pdfs(cfg: ChemRxivConfig):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="ChemRxiv gatherer/downloader using YAML config with Pydantic")
+        description="ChemRxiv gatherer/downloader using YAML config with Pydantic"
+    )
     parser.add_argument("--config", required=True, help="Path to YAML config file")
-    parser.add_argument("--stage", required=True,
-                        choices=["gather", "download"], help="Stage to run")
+    parser.add_argument(
+        "--stage", required=True, choices=["gather", "download"], help="Stage to run"
+    )
     args = parser.parse_args()
 
     with open(args.config, "r") as file:
